@@ -2,6 +2,7 @@ require "sentry/rails/tracing/action_controller_subscriber"
 require "sentry/rails/tracing/action_view_subscriber"
 require "sentry/rails/tracing/active_record_subscriber"
 require "sentry/rails/tracing/active_storage_subscriber"
+require "sentry/rails/tracing/active_support_subscriber"
 
 module Sentry
   class Configuration
@@ -162,6 +163,7 @@ module Sentry
         end
         @tracing_subscribers = Set.new([
           Sentry::Rails::Tracing::ActionViewSubscriber,
+          Sentry::Rails::Tracing::ActiveSupportSubscriber,
           Sentry::Rails::Tracing::ActiveRecordSubscriber,
           Sentry::Rails::Tracing::ActiveStorageSubscriber
         ])
