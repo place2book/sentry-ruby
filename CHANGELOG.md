@@ -1,6 +1,9 @@
 ## Unreleased
 
+### Features
+
 - Add support for $SENTRY_DEBUG and $SENTRY_SPOTLIGHT ([#2374](https://github.com/getsentry/sentry-ruby/pull/2374))
+- Support human readable intervals in `sidekiq-cron` ([#2387](https://github.com/getsentry/sentry-ruby/pull/2387))
 - Add support for Sentry Cache instrumentation, when using Rails.cache ([#2380](https://github.com/getsentry/sentry-ruby/pull/2380))
 
 ## 5.19.0
@@ -32,7 +35,7 @@
   ```
 
 - Transaction data are now included in the context ([#2365](https://github.com/getsentry/sentry-ruby/pull/2365))
-  - Closes [#2364](https://github.com/getsentry/sentry-ruby/issues/2363)
+  - Closes [#2363](https://github.com/getsentry/sentry-ruby/issues/2363)
 
 - Inject Sentry meta tags in the Rails application layout automatically in the generator ([#2369](https://github.com/getsentry/sentry-ruby/pull/2369))
 
