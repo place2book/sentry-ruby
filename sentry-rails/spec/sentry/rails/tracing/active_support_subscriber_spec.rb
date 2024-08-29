@@ -10,9 +10,6 @@ RSpec.describe Sentry::Rails::Tracing::ActiveSupportSubscriber, :subscriber, typ
       make_basic_app do |config, app|
         config.traces_sample_rate = 1.0
         config.rails.tracing_subscribers = [described_class]
-
-        app.config.action_controller.perform_caching = true
-        app.config.cache_store = :memory_store
       end
     end
 
@@ -32,7 +29,10 @@ RSpec.describe Sentry::Rails::Tracing::ActiveSupportSubscriber, :subscriber, typ
       expect(cache_transaction[:spans][0][:origin]).to eq("auto.cache.rails")
     end
 
+    #
     it "tracks cache increment" do
+      skip("Tracks on Rails 8.0 for all Cache Stores; Until then only MemCached and Redis Stores.") if Rails.version.to_f < 8.0
+
       Rails.cache.write("my_cache_key", 0)
 
       transaction = Sentry::Transaction.new(sampled: true, hub: Sentry.get_current_hub)
@@ -41,6 +41,7 @@ RSpec.describe Sentry::Rails::Tracing::ActiveSupportSubscriber, :subscriber, typ
 
       transaction.finish
 
+      expect(Rails.cache.read("my_cache_key")).to eq(1)
       expect(transport.events.count).to eq(1)
       cache_transaction = transport.events.first.to_hash
       expect(cache_transaction[:type]).to eq("transaction")
@@ -49,7 +50,10 @@ RSpec.describe Sentry::Rails::Tracing::ActiveSupportSubscriber, :subscriber, typ
       expect(cache_transaction[:spans][1][:origin]).to eq("auto.cache.rails")
     end
 
+    #
     it "tracks cache decrement" do
+      skip("Tracks on Rails 8.0 for all Cache Stores; Until then only MemCached and Redis Stores.") if Rails.version.to_f < 8.0
+
       Rails.cache.write("my_cache_key", 0)
 
       transaction = Sentry::Transaction.new(sampled: true, hub: Sentry.get_current_hub)
@@ -79,6 +83,39 @@ RSpec.describe Sentry::Rails::Tracing::ActiveSupportSubscriber, :subscriber, typ
       expect(cache_transaction[:spans].count).to eq(1)
       expect(cache_transaction[:spans][0][:op]).to eq("cache.get")
       expect(cache_transaction[:spans][0][:origin]).to eq("auto.cache.rails")
+    end
+
+    it "tracks cache delete" do
+      transaction = Sentry::Transaction.new(sampled: true, hub: Sentry.get_current_hub)
+      Sentry.get_current_scope.set_span(transaction)
+
+      Rails.cache.read("my_cache_key")
+
+      transaction.finish
+
+      expect(transport.events.count).to eq(1)
+      cache_transaction = transport.events.first.to_hash
+      expect(cache_transaction[:type]).to eq("transaction")
+      expect(cache_transaction[:spans].count).to eq(1)
+      expect(cache_transaction[:spans][0][:op]).to eq("cache.get")
+      expect(cache_transaction[:spans][0][:origin]).to eq("auto.cache.rails")
+    end
+    it "tracks cache prune" do
+      transaction = Sentry::Transaction.new(sampled: true, hub: Sentry.get_current_hub)
+      Sentry.get_current_scope.set_span(transaction)
+
+      Rails.cache.write("my_cache_key", 123, expires_in: 0.seconds)
+
+      Rails.cache.prune(0)
+
+      transaction.finish
+
+      expect(transport.events.count).to eq(1)
+      cache_transaction = transport.events.first.to_hash
+      expect(cache_transaction[:type]).to eq("transaction")
+      expect(cache_transaction[:spans].count).to eq(2)
+      expect(cache_transaction[:spans][1][:op]).to eq("cache.flush")
+      expect(cache_transaction[:spans][1][:origin]).to eq("auto.cache.rails")
     end
 
     it "tracks sets cache hit" do
