@@ -9,7 +9,7 @@ module Sentry
     # @deprecated Use Sentry::PropagationContext::SENTRY_TRACE_REGEXP instead.
     SENTRY_TRACE_REGEXP = PropagationContext::SENTRY_TRACE_REGEXP
 
-    UNLABELD_NAME = "<unlabeled transaction>".freeze
+    UNLABELD_NAME = "<unlabeled transaction>"
     MESSAGE_PREFIX = "[Tracing]"
 
     # https://develop.sentry.dev/sdk/event-payloads/transaction/#transaction-annotations
@@ -85,7 +85,7 @@ module Sentry
       @effective_sample_rate = nil
       @contexts = {}
       @measurements = {}
-      @profiler = Profiler.new(@configuration)
+      @profiler = @configuration.profiler_class.new(@configuration)
       init_span_recorder
     end
 

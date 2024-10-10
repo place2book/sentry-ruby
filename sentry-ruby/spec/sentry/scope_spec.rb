@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "spec_helper"
 
 RSpec.describe Sentry::Scope do
@@ -293,7 +295,7 @@ RSpec.describe Sentry::Scope do
       end
     end
 
-    it "sets trace context from span if there's a span" do
+    it "sets trace context and dynamic_sampling_context from span if there's a span" do
       transaction = Sentry::Transaction.new(op: "foo", hub: hub)
       subject.set_span(transaction)
 
@@ -301,6 +303,7 @@ RSpec.describe Sentry::Scope do
 
       expect(event.contexts[:trace]).to eq(transaction.get_trace_context)
       expect(event.contexts.dig(:trace, :op)).to eq("foo")
+      expect(event.dynamic_sampling_context).to eq(transaction.get_dynamic_sampling_context)
     end
 
     it "sets trace context and dynamic_sampling_context from propagation context if there's no span" do

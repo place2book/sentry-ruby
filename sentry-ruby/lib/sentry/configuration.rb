@@ -3,8 +3,8 @@
 require "concurrent/utility/processor_counter"
 
 require "sentry/utils/exception_cause_chain"
-require 'sentry/utils/custom_inspection'
-require 'sentry/utils/env_helper'
+require "sentry/utils/custom_inspection"
+require "sentry/utils/env_helper"
 require "sentry/dsn"
 require "sentry/release_detector"
 require "sentry/transport/configuration"
@@ -22,6 +22,8 @@ module Sentry
     # Directories to be recognized as part of your app. e.g. if you
     # have an `engines` dir at the root of your project, you may want
     # to set this to something like /(app|config|engines|lib)/
+    #
+    # The default is value is /(bin|exe|app|config|lib|test|spec)/
     #
     # @return [Regexp, nil]
     attr_accessor :app_dirs_pattern
@@ -188,6 +190,11 @@ module Sentry
     # @return [String]
     attr_accessor :project_root
 
+    # Whether to strip the load path while constructing the backtrace frame filename.
+    # Defaults to true.
+    # @return [Boolean]
+    attr_accessor :strip_backtrace_load_path
+
     # Insert sentry-trace to outgoing requests' headers
     # @return [Boolean]
     attr_accessor :propagate_traces
@@ -284,6 +291,10 @@ module Sentry
     # @return [Symbol]
     attr_reader :instrumenter
 
+    # The profiler class
+    # @return [Class]
+    attr_reader :profiler_class
+
     # Take a float between 0.0 and 1.0 as the sample rate for capturing profiles.
     # Note that this rate is relative to traces_sample_rate / traces_sampler,
     # i.e. the profile is sampled by this rate after the transaction is sampled.
@@ -324,17 +335,19 @@ module Sentry
     ].freeze
 
     HEROKU_DYNO_METADATA_MESSAGE = "You are running on Heroku but haven't enabled Dyno Metadata. For Sentry's "\
-    "release detection to work correctly, please run `heroku labs:enable runtime-dyno-metadata`".freeze
+    "release detection to work correctly, please run `heroku labs:enable runtime-dyno-metadata`"
 
-    LOG_PREFIX = "** [Sentry] ".freeze
-    MODULE_SEPARATOR = "::".freeze
+    LOG_PREFIX = "** [Sentry] "
+    MODULE_SEPARATOR = "::"
     SKIP_INSPECTION_ATTRIBUTES = [:@linecache, :@stacktrace_builder]
 
     INSTRUMENTERS = [:sentry, :otel]
 
-    PROPAGATION_TARGETS_MATCH_ALL = /.*/.freeze
+    PROPAGATION_TARGETS_MATCH_ALL = /.*/
 
     DEFAULT_PATCHES = %i[redis puma http].freeze
+
+    APP_DIRS_PATTERN = /(bin|exe|app|config|lib|test|spec)/
 
     class << self
       # Post initialization callbacks are called at the end of initialization process
@@ -350,11 +363,12 @@ module Sentry
     end
 
     def initialize
-      self.app_dirs_pattern = nil
+      self.app_dirs_pattern = APP_DIRS_PATTERN
       self.debug = Sentry::Utils::EnvHelper.env_to_bool(ENV["SENTRY_DEBUG"])
       self.background_worker_threads = (processor_count / 2.0).ceil
       self.background_worker_max_queue = BackgroundWorker::DEFAULT_MAX_QUEUE
       self.backtrace_cleanup_callback = nil
+      self.strip_backtrace_load_path = true
       self.max_breadcrumbs = BreadcrumbBuffer::DEFAULT_SIZE
       self.breadcrumbs_logger = []
       self.context_lines = 3
@@ -377,9 +391,9 @@ module Sentry
       self.auto_session_tracking = true
       self.enable_backpressure_handling = false
       self.trusted_proxies = []
-      self.dsn = ENV['SENTRY_DSN']
+      self.dsn = ENV["SENTRY_DSN"]
 
-      spotlight_env = ENV['SENTRY_SPOTLIGHT']
+      spotlight_env = ENV["SENTRY_SPOTLIGHT"]
       spotlight_bool = Sentry::Utils::EnvHelper.env_to_bool(spotlight_env, strict: true)
       self.spotlight = spotlight_bool.nil? ? (spotlight_env || false) : spotlight_bool
       self.server_name = server_name_from_env
@@ -392,6 +406,8 @@ module Sentry
       self.rack_env_whitelist = RACK_ENV_WHITELIST_DEFAULT
       self.traces_sampler = nil
       self.enable_tracing = nil
+
+      self.profiler_class = Sentry::Profiler
 
       @transport = Transport::Configuration.new
       @cron = Cron::Configuration.new
@@ -488,6 +504,18 @@ module Sentry
       @profiles_sample_rate = profiles_sample_rate
     end
 
+    def profiler_class=(profiler_class)
+      if profiler_class == Sentry::Vernier::Profiler
+        begin
+          require "vernier"
+        rescue LoadError
+          raise ArgumentError, "Please add the 'vernier' gem to your Gemfile to use the Vernier profiler with Sentry."
+        end
+      end
+
+      @profiler_class = profiler_class
+    end
+
     def sending_allowed?
       spotlight || sending_to_dsn_allowed?
     end
@@ -559,7 +587,8 @@ module Sentry
         app_dirs_pattern: @app_dirs_pattern,
         linecache: @linecache,
         context_lines: @context_lines,
-        backtrace_cleanup_callback: @backtrace_cleanup_callback
+        backtrace_cleanup_callback: @backtrace_cleanup_callback,
+        strip_backtrace_load_path: @strip_backtrace_load_path
       )
     end
 

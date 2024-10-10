@@ -1,10 +1,61 @@
 ## Unreleased
 
+### Features 
+
+- Add support for Sentry Cache instrumentation, when using Rails.cache ([#2380](https://github.com/getsentry/sentry-ruby/pull/2380))
+
+## 5.21.0
+
 ### Features
 
-- Add support for $SENTRY_DEBUG and $SENTRY_SPOTLIGHT ([#2374](https://github.com/getsentry/sentry-ruby/pull/2374))
+- Experimental support for multi-threaded profiling using [Vernier](https://github.com/jhawthorn/vernier) ([#2372](https://github.com/getsentry/sentry-ruby/pull/2372))
+
+  You can have much better profiles if you're using multi-threaded servers like Puma now by leveraging Vernier.
+  To use it, first add `vernier` to your `Gemfile` and make sure it is loaded before `sentry-ruby`.
+
+  ```ruby
+  # Gemfile
+
+  gem 'vernier'
+  gem 'sentry-ruby'
+  ```
+
+  Then, set a `profiles_sample_rate` and the new `profiler_class` configuration in your sentry initializer to use the new profiler.
+
+  ```ruby
+  # config/initializers/sentry.rb
+
+  Sentry.init do |config|
+    # ...
+    config.profiles_sample_rate = 1.0
+    config.profiler_class = Sentry::Vernier::Profiler
+  end
+  ```
+
+### Internal
+
+- Profile items have bigger size limit now ([#2421](https://github.com/getsentry/sentry-ruby/pull/2421))
+- Consistent string freezing ([#2422](https://github.com/getsentry/sentry-ruby/pull/2422))
+
+## 5.20.1
+
+### Bug Fixes
+
+- Skip `rubocop.yml` in `spec.files` ([#2420](https://github.com/getsentry/sentry-ruby/pull/2420))
+
+## 5.20.0
+
+- Add support for `$SENTRY_DEBUG` and `$SENTRY_SPOTLIGHT` ([#2374](https://github.com/getsentry/sentry-ruby/pull/2374))
 - Support human readable intervals in `sidekiq-cron` ([#2387](https://github.com/getsentry/sentry-ruby/pull/2387))
-- Add support for Sentry Cache instrumentation, when using Rails.cache ([#2380](https://github.com/getsentry/sentry-ruby/pull/2380))
+- Set default app dirs pattern ([#2390](https://github.com/getsentry/sentry-ruby/pull/2390))
+- Add new `strip_backtrace_load_path` boolean config (default true) to enable disabling load path stripping ([#2409](https://github.com/getsentry/sentry-ruby/pull/2409))
+
+### Bug Fixes
+
+- Fix error events missing a DSC when there's an active span ([#2408](https://github.com/getsentry/sentry-ruby/pull/2408))
+- Verifies presence of client before adding a breadcrumb ([#2394](https://github.com/getsentry/sentry-ruby/pull/2394))
+- Fix `Net:HTTP` integration for non-ASCII URI's ([#2417](https://github.com/getsentry/sentry-ruby/pull/2417))
+- Prevent Hub from having nil scope and client ([#2402](https://github.com/getsentry/sentry-ruby/pull/2402))
 
 ## 5.19.0
 
